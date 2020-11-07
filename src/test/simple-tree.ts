@@ -3,10 +3,9 @@ import { RabinBTree } from "../rabin-b-tree";
 import { DEFAULT_FORMATS, encodeJSON, inspectTree } from "./helpers";
 
 const N = 1e4;
-
 const T = 1e2;
 
-tape('simple tree test', async (t) => {
+tape('index query test', async (t) => {
     // first create a bunch of random strings
     const data:string[] = [];
     for (let i = 0; i < N; ++i) {
