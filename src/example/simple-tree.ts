@@ -25,9 +25,11 @@ async function simpleTest () {
     const rbt = new RabinBTree(DEFAULT_FORMATS.hasher, DEFAULT_FORMATS.codec, DEFAULT_FORMATS.storage);
     const root = await rbt.create(dataCIDs);
 
+    console.log('root =', root.toString());
+
     // print tree
-    const tree = inspectTree(rbt, root);
-    util.inspect(tree, true, 5, true);
+    const tree = await inspectTree(rbt, root);
+    console.log(tree);
 }
 
 simpleTest();

@@ -1,8 +1,8 @@
 // pulls in the stuff we need from multiformats and wraps it in good-enough typescript interfaces
 // did this to avoid fighting with multiformats/node15 more than was required.  was wasting too much time trying to figure stuff out
 //
-const _Block = (<any>require)('multiformats/cjs/src/block');
-const _CID = (<any>require)('multiformats/cjs/src/cid');
+const _Block = (<any>require)('multiformats/block');
+const _CID = (<any>require)('multiformats/cid');
 
 export interface Codec {
     name:string;

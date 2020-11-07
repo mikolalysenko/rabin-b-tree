@@ -2,8 +2,8 @@ import { Block, CID, Codec, encode, Hasher } from '../multiformat';
 import { RabinBTree } from '../rabin-b-tree';
 import { Storage } from '../storage';
 
-const _sha2 = (<any>require)('multiformats/cjs/src/hashes/sha2');
-const _json = (<any>require)('multiformats/cjs/src/codecs/json');
+const _sha2 = (<any>require)('multiformats/hashes/sha2');
+const _json = (<any>require)('multiformats/codecs/json');
 
 export class MemoryStorage implements Storage {
     private _blocks = new Map<string, Block<any>>();

@@ -8,11 +8,11 @@
 import { CID } from './multiformat';
 
 const MIN_SIZE = 64;
-const MAX_SIZE = 4096;
+const MAX_SIZE = 1024;
 
 // modified from paper to use fewer bits -> smaller window
-const MASK_HI = 0x8000d900;
-const MASK_LO = 0x03030000;
+const MASK_HI = 0x88000000;
+const MASK_LO = 0x03000000;
 
 const UINT32_MASK = ~0;
 
