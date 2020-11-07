@@ -1,10 +1,12 @@
-import * as util from 'util';
+import tape = require('tape');
 import { RabinBTree } from "../rabin-b-tree";
 import { DEFAULT_FORMATS, encodeJSON, inspectTree } from "./helpers";
 
 const N = 1e4;
 
-async function simpleTest () {
+const T = 1e2;
+
+tape('simple tree test', async (t) => {
     // first create a bunch of random strings
     const data:string[] = [];
     for (let i = 0; i < N; ++i) {
@@ -30,6 +32,13 @@ async function simpleTest () {
     // print tree
     const tree = await inspectTree(rbt, root);
     console.log(tree);
-}
 
-simpleTest();
+    // now run some random index tests
+    for (let i = 0; i < T; ++i) {
+        const index = Math.floor(N * Math.random());
+        const element = await rbt.query(root, index);
+        t.equals(element.toString(), dataCIDs[index].toString(), 'test query at index ' + index);
+    }
+
+    t.end();
+});

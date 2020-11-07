@@ -46,7 +46,7 @@ export class RabinBTree {
     }
 
     // simple bottom up tree construction
-    public async create (hashes:CID[]) {
+    public async create (hashes:CID[]) : Promise<CID> {
         let prevCount = hashes.map(() => 1);
         let prevHashes = hashes;
 
@@ -69,7 +69,7 @@ export class RabinBTree {
     }
 
     // access element at position i
-    public async query (node:CID, _index:number) {
+    public async query (node:CID, _index:number) : Promise<CID> {
         if (_index < 0) {
             throw new Error('out of bounds');
         }
