@@ -5,7 +5,7 @@
 // Uses a crappy version of the gear FastCDC method from Wikipedia
 // We assume that the hashed values are already more-or-less random so skip using the gear table.
 
-import { CID } from "./multiformat";
+import { CID } from './multiformat';
 
 const MIN_SIZE = 64;
 const MAX_SIZE = 4096;

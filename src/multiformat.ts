@@ -1,10 +1,8 @@
 // pulls in the stuff we need from multiformats and wraps it in good-enough typescript interfaces
 // did this to avoid fighting with multiformats/node15 more than was required.  was wasting too much time trying to figure stuff out
 //
-const _Block = (<any>require)('multiformats/block');
-const _sha2 = (<any>require)('multiformats/hashes/sha2');
-const _json = (<any>require)('multiformats/codecs/json');
-const _CID = (<any>require)('multiformats/cid');
+const _Block = (<any>require)('multiformats/cjs/src/block');
+const _CID = (<any>require)('multiformats/cjs/src/cid');
 
 export interface Codec {
     name:string;
@@ -47,10 +45,6 @@ export interface Block<T> {
     value:T;
 }
 
-export const sha256Hasher:Hasher = _sha2.sha256;
-export const sha512Hasher:Hasher = _sha2.sha512;
-export const jsonCodec:Codec = _json;
-
 export function encode<T>(spec:{
     value:T,
     hasher:Hasher,
@@ -67,6 +61,6 @@ export function decode<T>(spec:{
     return _Block.decode(spec);
 }
 
-export function parseCID (hash:string) {
+export function parseCID (hash:string) : CID {
     return _CID.parse(hash);
 }

@@ -18,12 +18,12 @@ export class RabinBTree {
     ) {}
 
     // TODO: replace this with a more efficient encoding
-    private async _createNode (counts:number[], hashes:CID[]) {
+    public async serializeNode (counts:number[], hashes:CID[]) {
         const block = await encode({
-            value: (new TextEncoder()).encode(JSON.stringify([
+            value: [
                 counts,
                 hashes.map((h) => h.toString())
-            ])),
+            ],
             hasher: this.hasher,
             codec: this.codec,
         });
@@ -32,11 +32,10 @@ export class RabinBTree {
     }
 
     // TODO: again, do something not so stupid here
-    private async _parseNode (cid:CID) {
+    public async parseNode (cid:CID) {
         const block:Block<Uint8Array> = await this.storage.get(cid);
-        const data = JSON.parse((new TextDecoder()).decode(block.value));
-        const count = data[0];
-        const hashes = data[1];
+        const count = block.value[0];
+        const hashes = block.value[1];
         if (!Array.isArray(count) || !Array.isArray(hashes) || count.length !== hashes.length) {
             throw new Error('invalid b-tree node ' + cid.toString());
         }
@@ -58,7 +57,7 @@ export class RabinBTree {
             for(let start = 0; start < prevHashes.length; ) {
                 const end = nextChunk(prevHashes, start);
                 nextCount.push(sum(prevCount, start, end));
-                nextHashes.push(this._createNode(prevCount.slice(start, end), prevHashes.slice(start, end)));
+                nextHashes.push(this.serializeNode(prevCount.slice(start, end), prevHashes.slice(start, end)));
                 start = end;
             }
 
@@ -76,7 +75,7 @@ export class RabinBTree {
         }
         // should replace this scan with interpolation search once we start caching blocks
         // right now it shouldn't matter much since we still do an O(n) scan per-block when reading from the network
-        const block = await this._parseNode(node);
+        const block = await this.parseNode(node);
         let index = _index;
         for (let i = 0; i < block.count.length; ++i) {
             const count = block.count[i];
