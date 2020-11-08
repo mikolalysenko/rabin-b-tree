@@ -1,6 +1,5 @@
-import { Block, CID, Codec, encode, Hasher } from '../multiformat';
-import { RabinBTree } from '../rabin-b-tree';
-import { Storage } from '../storage';
+import { Block, CID, Codec, encode, Hasher, Storage } from '../multiformat';
+import { RabinArray } from '../rabin-array';
 
 const _sha2 = (<any>require)('multiformats/hashes/sha2');
 const _json = (<any>require)('multiformats/codecs/json');
@@ -52,16 +51,17 @@ export async function parseJSON (config:{
     return block.value;
 }
 
-export async function inspectTree(rbt:RabinBTree, root:CID) {
-    const node = await rbt.parseNode(root);
+export async function inspectArray(ra:RabinArray, root:CID) {
+    const node = await ra.parseNode(root);
     return {
         cid: root.toString(),
         count: node.count,
+        leaf: node.leaf,
         children: await Promise.all(node.hashes.map((cid, i) => {
             if (node.count[i] === 1) {
                 return cid.toString();
             }
-            return inspectTree(rbt, cid);
+            return inspectArray(ra, cid);
         })),
     };
 }

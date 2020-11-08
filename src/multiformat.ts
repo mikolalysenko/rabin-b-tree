@@ -64,3 +64,8 @@ export function decode<T>(spec:{
 export function parseCID (hash:string) : CID {
     return _CID.parse(hash);
 }
+
+export interface Storage {
+    put<T>(block:Block<T>):Promise<void>;
+    get<T>(cid:CID):Promise<Block<T>>;
+}

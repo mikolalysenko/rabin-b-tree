@@ -25,7 +25,7 @@ function gear (cid:CID) {
 export function nextChunk (data:CID[], start:number) {
     const n = Math.min(data.length - start, MAX_SIZE);
     if (n < MIN_SIZE) {
-        return data.length;
+        return -1;
     }
     let ptr = start;
     let flo = 0;
@@ -43,5 +43,5 @@ export function nextChunk (data:CID[], start:number) {
             return ptr;
         }
     }
-    return ptr;
+    return -1;
 }
