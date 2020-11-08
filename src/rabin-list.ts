@@ -1,13 +1,13 @@
 import { Hasher, Codec, Storage, CID, encode, Block, parseCID } from './multiformat';
 import { nextChunk } from './chunk';
 
-type RabinArrayNode = {
+type RabinListNode = {
     leaf:boolean;
     count:number[];
     hashes:CID[];
 }
 
-type RabinArrayLevel = {
+type RabinListLevel = {
     start:number;
     end:number;
     count:number[];
@@ -22,7 +22,7 @@ function sum (x:number[], start:number, end:number) {
     return r;
 }
 
-export class RabinArray {
+export class RabinList {
     constructor (
         public hasher:Hasher,
         public codec:Codec,
@@ -45,13 +45,13 @@ export class RabinArray {
     }
 
     // TODO: again, do something not so stupid here
-    public async parseNode (cid:CID) : Promise<RabinArrayNode> {
+    public async parseNode (cid:CID) : Promise<RabinListNode> {
         const block:Block<any> = await this.storage.get(cid);
         const isLeaf = !!block.value[0];
         const count = block.value[1];
         const hashes = block.value[2];
         if (!Array.isArray(count) || !Array.isArray(hashes) || count.length !== hashes.length) {
-            throw new Error('invalid b-tree node ' + cid.toString());
+            throw new Error('invalid RabinList node ' + cid.toString());
         }
         return {
             leaf: isLeaf,
@@ -61,7 +61,8 @@ export class RabinArray {
     }
 
     /**
-     * Creates a new array from an array of CIDs
+     * Creates a rabin list from an array of CIDs
+     * Time & space complexity: O(n log(n))
      * 
      * @param hashes The ordered array of all CIDs which we are inserting into the tree
      * @returns The CID of the root of the new tree
@@ -98,37 +99,46 @@ export class RabinArray {
     }
 
     /**
-     * Returns the element at the given array index
+     * Returns the element at index
+     * Time complexity: O(log_B n)
      * 
-     * @param root The CID of the array
+     * @param root The CID of the list
      * @param index The index of the element we are accessing
      * @returns The CID of the element at the index 
      */
     public async at (root:CID, index:number) : Promise<CID> {
         if (index < 0) {
-            throw new Error('out of bounds');
+            throw new Error('rabin-list: index out of bounds');
         }
-        // should replace this scan with interpolation search once we start caching blocks
-        // right now it shouldn't matter much since we still do an O(n) scan per-block when reading from the network
-        const block = await this.parseNode(root);
+        let cid = root;
         let ptr = index;
-        for (let i = 0; i < block.count.length; ++i) {
-            const count = block.count[i];
-            if (ptr < count) {
-                if (block.leaf) {
-                    return block.hashes[i];
-                } else {
-                    return this.at(block.hashes[i], ptr);
+        search_loop: while (true) {
+            const block = await this.parseNode(cid);
+
+            // should replace this scan with interpolation search once we start caching blocks
+            // blocks should be stored as a prefix sum instead of an array of counts
+            // right now it shouldn't matter much since we still do an O(n) scan per-block when reading from the network
+            for (let i = 0; i < block.count.length; ++i) {
+                const count = block.count[i];
+                if (ptr < count) {
+                    if (block.leaf) {
+                        return block.hashes[i];
+                    } else {
+                        cid = block.hashes[i];
+                        continue search_loop;
+                    }
                 }
+                ptr -= count;
             }
-            ptr -= count;
+            throw new Error('rabin-array: index out of bounds');
         }
-        throw new Error('out of bounds');
     }
 
     /**
-     * Performs a splice() operation, similiar to JavaScript's Array.splice()
-     * With splice you can implenent whatever updates you want (push/pop/update at point), even if it's not super efficient.
+     * Performs a splice() operation on a list, similiar to JavaScript's Array.splice()
+     * With splice you can implement whatever updates you want (push/pop/set etc.)
+     * 
+     * Time & space complexity: O(k log_B (n + k)), where k = size of the splice in deletes + items
      * 
      * @param root The root of the array object
      * @param start The start index of the splice
@@ -142,15 +152,15 @@ export class RabinArray {
         }
 
         // methods for rabin-array
-        const ra = this;
+        const rl = this;
 
         // read in levels of the tree as we are splicing into the tree
-        const levels:RabinArrayLevel[] = [];
+        const levels:RabinListLevel[] = [];
         {   // scan down bottom of tree and build a stack of level
             let cid = root;
             let ptr = start;
             search_loop: while (true) {
-                const block = await ra.parseNode(cid);
+                const block = await rl.parseNode(cid);
                 // special case: insert into empty tree
                 if (cid === root && block.hashes.length === 0) {
                     return this.create(items);
@@ -197,7 +207,7 @@ export class RabinArray {
                 }
             }
             const cid = parent.hashes[parent.end++];
-            const node = await ra.parseNode(cid);
+            const node = await rl.parseNode(cid);
             const l = levels[level];
             for (let i = 0; i < node.count.length; ++i) {
                 l.count.push(node.count[i]);
@@ -222,7 +232,7 @@ export class RabinArray {
         // now rebuild tree, scanning from bottom up
         for (let i = 0; i < levels.length; ++i) {
             // retrieve parent level
-            let parent:RabinArrayLevel;
+            let parent:RabinListLevel;
             if (i === levels.length - 1) {
                 parent = {
                     start: 0,
@@ -282,7 +292,9 @@ export class RabinArray {
     }
 
     /**
-     * Returns the number of nodes in an array
+     * Returns the length of the list
+     * Complexity: O(1)
+     * 
      * @param root The root node of the array data structure
      * @returns the number of elements in the tree
      */
@@ -291,6 +303,96 @@ export class RabinArray {
         return sum(node.count, 0, node.count.length);
     }
 
+    /**
+     * Async generator, scans the array from start to end
+     * Complexity: O(k + log(n))  where k = end - start
+     * 
+     * @param root The root node of the array data structure
+     * @param start (optional) start index of the region to scan (default is 0)
+     * @param end (optional) end index of the region to scan (default is end of the array)
+     * @yields A sequence of array elements in the tree in the range start to end
+     */
     public async* scan(root:CID, start:number=0, end?:number) {
+        let count = typeof end === 'undefined' ? Infinity : (end - start);
+        if (start < 0) {
+            throw new Error('rabin-list: index out of bounds');
+        }
+        if (count < 0) {
+            return;
+        }
+
+        // first do a search on the start of the array to initialize the stack
+        const stack:{
+            index:number;
+            hashes:CID[];
+        }[] = [];
+        let cid = root;
+        let ptr = start;
+        search_loop: while (true) {
+            const block = await this.parseNode(cid);
+            for (let i = 0; i < block.count.length; ++i) {
+                const count = block.count[i];
+                if (ptr < count) {
+                    stack.push({
+                        index: i,
+                        hashes: block.hashes,
+                    });
+                    if (block.leaf) {
+                        break search_loop;
+                    } else {
+                        cid = block.hashes[i];
+                        continue search_loop;
+                    }
+                }
+                ptr -= count;
+            }
+            throw new Error('rabin-list: index out of bounds');
+        }
+
+        // next we start scanning the array
+        while (count > 0) {            
+            // scan leaf node items
+            const top = stack.pop();
+            const n = Math.min(count, top.hashes.length - top.index)
+            for (let i = 0, ptr = top.index; i < n; ++i) {
+                // TODO: would be more efficient to yield hashes in batches instead of one-by-one
+                yield top.hashes[ptr++];
+            }
+
+            // decrement count and terminate if necessary
+            count -= n;
+            if (count <= 0) {
+                return;
+            }
+
+            // walk to next node in stack
+            while (true) {
+                const top = stack[stack.length - 1];
+                top.index += 1;
+                if (top.index >= top.hashes.length) {
+                    // if we are at the end of this node's sequence then pop it from the stack
+                    stack.pop();
+                    if (stack.length === 0) {
+                        return;
+                    }
+                } else {
+                    // otherwise we pop hashes off recursively
+                    let cid = top.hashes[top.index];
+                    while (true) {
+                        const block = await this.parseNode(cid);
+                        stack.push({
+                            index: 0,
+                            hashes: block.hashes,
+                        });
+                        if (block.leaf) {
+                            break;
+                        } else {
+                            cid = block.hashes[0];
+                        }
+                    }
+                    break;
+                }
+            }
+        }
     }
 }

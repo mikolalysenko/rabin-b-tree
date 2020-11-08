@@ -1,5 +1,5 @@
 import { Block, CID, Codec, encode, Hasher, Storage } from '../multiformat';
-import { RabinArray } from '../rabin-array';
+import { RabinList } from '../rabin-list';
 
 const _sha2 = (<any>require)('multiformats/hashes/sha2');
 const _json = (<any>require)('multiformats/codecs/json');
@@ -51,8 +51,8 @@ export async function parseJSON (config:{
     return block.value;
 }
 
-export async function inspectArray(ra:RabinArray, root:CID) {
-    const node = await ra.parseNode(root);
+export async function inspectList(rl:RabinList, root:CID) {
+    const node = await rl.parseNode(root);
     return {
         cid: root.toString(),
         count: node.count,
@@ -61,7 +61,7 @@ export async function inspectArray(ra:RabinArray, root:CID) {
             if (node.count[i] === 1) {
                 return cid.toString();
             }
-            return inspectArray(ra, cid);
+            return inspectList(rl, cid);
         })),
     };
 }
