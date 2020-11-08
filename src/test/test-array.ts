@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'crypto';
 import tape = require('tape');
 import { RabinArray } from "../rabin-array";
 import { DEFAULT_FORMATS, encodeJSON, inspectArray } from "./helpers";
@@ -27,11 +26,11 @@ tape('index query test', async (t) => {
 
     // create a tree
     const root = await RA.create(dataCIDs);
-    console.log('root =', root.toString());
+    // console.log('root =', root.toString());
 
     // print tree
     const tree = await inspectArray(RA, root);
-    console.log(tree);
+    // console.log(tree);
 
     // now run some random index tests
     for (let i = 0; i < T; ++i) {
@@ -48,7 +47,7 @@ tape('empty tree', async (t) => {
     console.log(empty);
 
     const tree = await inspectArray(RA, empty);
-    console.log(tree);
+    // console.log(tree);
 
     t.same(tree.leaf, true, 'leaf ok');
     t.same(tree.count, [], 'count ok');
@@ -71,9 +70,9 @@ tape('splice', async (t) => {
 
     // make a pair of trees for empty and full
     const [ empty, one, full ] = await Promise.all([ RA.create([]), RA.create([ cids[0] ]), RA.create(cids) ]);
-    console.log('empty =', await inspectArray(RA, empty));
-    console.log('one = ', await inspectArray(RA, one));
-    console.log('full = ', await inspectArray(RA, full));
+    // console.log('empty =', await inspectArray(RA, empty));
+    // console.log('one = ', await inspectArray(RA, one));
+    // console.log('full = ', await inspectArray(RA, full));
 
     // check splice fully delete is consistent
     const removeAll = await RA.splice(full, 0, cids.length);
@@ -102,18 +101,21 @@ tape('splice', async (t) => {
         ...DEFAULT_FORMATS
     })));
 
-
-    {
+    async function testSplice (start:number, deleteCount:number, itemLength:number) {
         const expectedData = cids.slice();
-        expectedData.splice(2000, 100, ...excids.slice(0, 1000));
+        expectedData.splice(start, deleteCount, ...excids.slice(0, itemLength));
         const expectedTree = await RA.create(expectedData);
-        const actualTree = await RA.splice(full, 2000, 100, ...excids.slice(0, 1000));
+        const actualTree = await RA.splice(full, start, deleteCount, ...excids.slice(0, itemLength));
 
-        console.log('expected:', await inspectArray(RA, expectedTree));
-        console.log('actual:', await inspectArray(RA, actualTree));
+        // console.log('expected:', await inspectArray(RA, expectedTree));
+        // console.log('actual:', await inspectArray(RA, actualTree));
 
-        t.equals(actualTree.toString(), expectedTree.toString(), `splice.  start=2000, deleteCount=100, items.length=1000`);
+        t.equals(actualTree.toString(), expectedTree.toString(), `test splice.  start=${start}, deleteCount=${deleteCount}, items.length=${itemLength}`);
     }
+
+    await testSplice(2000, 100, 1000);
+    await testSplice(7506, 208, 2682);
+    await testSplice(228, 1435, 2251);
 
     // check a series of random splices
     for (let i = 0; i < 100; ++i) {
@@ -121,17 +123,9 @@ tape('splice', async (t) => {
         const b = (Math.random() * cids.length) | 0;
         const start = Math.min(a, b);
         const deleteCount = Math.max(a, b) - start;
-        const items = excids.slice(0, (Math.random() * excids.length) | 0);
-
-        const expectedData = cids.slice();
-        expectedData.splice(start, deleteCount, ...items);
-        const expectedTree = await RA.create(expectedData);
-        const actualTree = await RA.splice(full, start, deleteCount, ...items);
-
-        // console.log('expected:', await inspectArray(RA, expectedTree));
-        // console.log('actual:', await inspectArray(RA, actualTree));
-
-        t.equals(actualTree.toString(), expectedTree.toString(), `splice index=${start} deleteCount=${deleteCount} items.length=${items.length}`);
+        const itemLength = (Math.random() * excids.length) | 0;
+        
+        await testSplice(start, deleteCount, itemLength);
     }
 
     t.end();

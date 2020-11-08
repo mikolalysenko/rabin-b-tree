@@ -7,8 +7,8 @@
 
 import { CID } from './multiformat';
 
-const MIN_SIZE = 64;
-const MAX_SIZE = 1024;
+export const MIN_CHUNK_SIZE = 64;
+export const MAX_CHUNK_SIZE = 1024;
 
 // modified from paper to use fewer bits -> smaller window
 const MASK_HI = 0x88000000;
@@ -23,23 +23,23 @@ function gear (cid:CID) {
 }
 
 export function nextChunk (data:CID[], start:number) {
-    const n = Math.min(data.length - start, MAX_SIZE);
-    if (n < MIN_SIZE) {
+    const n = data.length - start;
+    if (n < MIN_CHUNK_SIZE) {
         return -1;
     }
     let ptr = start;
     let flo = 0;
     let fhi = 0;
-    for (let i = 0; i < MIN_SIZE; ++i) {
+    for (let i = 0; i < MIN_CHUNK_SIZE; ++i) {
         const x = ((flo << 1) >>> 0) + gear(data[ptr++]);
         fhi = (((fhi << 1) >>> 0) + (x > UINT32_MASK ? 1 : 0)) >>> 0;
         flo = x >>> 0;
     }
-    for (let i = MIN_SIZE; i < n; ++i) {
+    for (let i = MIN_CHUNK_SIZE; i < n; ++i) {
         const x = ((flo << 1) >>> 0) + gear(data[ptr++]);
         fhi = (((fhi << 1) >>> 0) + (x > UINT32_MASK ? 1 : 0)) >>> 0;
         flo = x >>> 0;
-        if (((MASK_HI & fhi) === 0) && ((MASK_LO & flo) === 0)) {
+        if ((i >= MAX_CHUNK_SIZE) || (((MASK_HI & fhi) === 0) && ((MASK_LO & flo) === 0))) {
             return ptr;
         }
     }

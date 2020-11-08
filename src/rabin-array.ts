@@ -159,7 +159,7 @@ export class RabinArray {
                     const c = block.count[i];
                     if (ptr <= c) {
                         levels.push({
-                            start: i + (ptr === c ? 1 : 0),
+                            start: i + (ptr === c && block.leaf ? 1 : 0),
                             end: i + 1,
                             count: block.count,
                             hashes: block.hashes,
