@@ -1,7 +1,21 @@
 # rabin-b-tree
 
-A B-tree which uses Rabin finger printing to split blocks.
+**This module is experimental**
 
-This is just a proof-of-concept and not really ready to use in production.
+Canonical functionally persistent data structures for lists and ordered indexes.
 
+## RabinList
 
+### `const rl = new RabinList(hasher, codec, storage)`
+
+### `rl.create(items)`
+
+### `rl.at(list, index)`
+
+### `rl.scan(list[, start, end])`
+
+### `rl.size(list)`
+
+### `rl.splice(list, start, deleteCount, ...items)`
+
+## RabinBtree

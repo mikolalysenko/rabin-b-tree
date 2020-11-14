@@ -1,5 +1,6 @@
 import { Hasher, Codec, Storage, CID, encode, Block, parseCID } from './multiformat';
 import { nextChunk } from './chunk';
+import { sum } from './helpers';
 
 type RabinListNode = {
     leaf:boolean;
@@ -12,14 +13,6 @@ type RabinListLevel = {
     end:number;
     count:number[];
     hashes:CID[];
-}
-
-function sum (x:number[], start:number, end:number) {
-    let r = 0;
-    for (let i = start; i < end; ++i) {
-        r += x[i];
-    }
-    return r;
 }
 
 export class RabinList {

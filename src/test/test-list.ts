@@ -2,13 +2,13 @@ import tape = require('tape');
 import { RabinList } from "../rabin-list";
 import { DEFAULT_FORMATS, encodeJSON, inspectList } from "./helpers";
 
-const RL = new RabinList(DEFAULT_FORMATS.hasher, DEFAULT_FORMATS.codec, DEFAULT_FORMATS.storage);
+const LIST = new RabinList(DEFAULT_FORMATS.hasher, DEFAULT_FORMATS.codec, DEFAULT_FORMATS.storage);
 
 tape('empty tree', async (t) => {
-    const empty = await RL.create([]);
+    const empty = await LIST.create([]);
     console.log(empty);
 
-    const tree = await inspectList(RL, empty);
+    const tree = await inspectList(LIST, empty);
     // console.log(tree);
 
     t.same(tree.leaf, true, 'leaf ok');
@@ -39,19 +39,19 @@ tape('query test', async (t) => {
     })));
 
     // create a tree
-    const root = await RL.create(dataCIDs);
+    const root = await LIST.create(dataCIDs);
     // console.log('root =', root.toString());
 
     // print tree
-    const tree = await inspectList(RL, root);
+    const tree = await inspectList(LIST, root);
     // console.log(tree);
 
-    t.equals(await RL.size(root), N, 'size is ok');
+    t.equals(await LIST.size(root), N, 'size is ok');
 
     // now run some random index tests
     for (let i = 0; i < T; ++i) {
         const index = Math.floor(N * Math.random());
-        const element = await RL.at(root, index);
+        const element = await LIST.at(root, index);
         t.equals(element.toString(), dataCIDs[index].toString(), 'test query at index ' + index);
     }
 
@@ -72,11 +72,11 @@ tape('scan test', async (t) => {
     })));
 
     // create a tree
-    const root = await RL.create(dataCIDs);
+    const root = await LIST.create(dataCIDs);
     
     async function testScan (start:number, end:number) {
         let ptr = start;
-        for await (const x of RL.scan(root, start, end)) {
+        for await (const x of LIST.scan(root, start, end)) {
             t.equals(x.toString(), dataCIDs[ptr].toString(), 'scan: ' + ptr)
             ptr += 1;
         }
@@ -103,25 +103,25 @@ tape('splice', async (t) => {
     })));
 
     // make a pair of trees for empty and full
-    const [ empty, one, full ] = await Promise.all([ RL.create([]), RL.create([ cids[0] ]), RL.create(cids) ]);
+    const [ empty, one, full ] = await Promise.all([ LIST.create([]), LIST.create([ cids[0] ]), LIST.create(cids) ]);
     // console.log('empty =', await inspectArray(RA, empty));
     // console.log('one = ', await inspectArray(RA, one));
     // console.log('full = ', await inspectArray(RA, full));
 
     // check splice fully delete is consistent
-    const removeAll = await RL.splice(full, 0, cids.length);
+    const removeAll = await LIST.splice(full, 0, cids.length);
     t.equals(removeAll.toString(), empty.toString(), 'removing elements canonically produces same result');
 
     // check splice full insert is consistent
-    const insertAll = await RL.splice(empty, 0, 0, ...cids);
+    const insertAll = await LIST.splice(empty, 0, 0, ...cids);
     t.equals(insertAll.toString(), full.toString(), 'inserting all elements produces same result');
 
     // check singleton array
-    const removeAllButOne = await RL.splice(full, 1, cids.length - 1);
+    const removeAllButOne = await LIST.splice(full, 1, cids.length - 1);
     t.equals(removeAllButOne.toString(), one.toString(), 'remove n - 1');
-    const insertOne = await RL.splice(empty, 0, 0, cids[0]);
+    const insertOne = await LIST.splice(empty, 0, 0, cids[0]);
     t.equals(insertOne.toString(), one.toString(), 'insert 1 into empty');
-    const insertAllButOne = await RL.splice(one, 1, 0, ...cids.slice(1));
+    const insertAllButOne = await LIST.splice(one, 1, 0, ...cids.slice(1));
     t.equals(insertAllButOne.toString(), full.toString(), 'insert n - 1');
 
     // create some extra data
@@ -138,8 +138,8 @@ tape('splice', async (t) => {
     async function testSplice (start:number, deleteCount:number, itemLength:number) {
         const expectedData = cids.slice();
         expectedData.splice(start, deleteCount, ...excids.slice(0, itemLength));
-        const expectedTree = await RL.create(expectedData);
-        const actualTree = await RL.splice(full, start, deleteCount, ...excids.slice(0, itemLength));
+        const expectedTree = await LIST.create(expectedData);
+        const actualTree = await LIST.splice(full, start, deleteCount, ...excids.slice(0, itemLength));
 
         // console.log('expected:', await inspectArray(RA, expectedTree));
         // console.log('actual:', await inspectArray(RA, actualTree));

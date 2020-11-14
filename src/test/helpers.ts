@@ -1,4 +1,5 @@
 import { Block, CID, Codec, encode, Hasher, Storage } from '../multiformat';
+import { RabinBTree } from '../rabin-b-tree';
 import { RabinList } from '../rabin-list';
 
 const _sha2 = (<any>require)('multiformats/hashes/sha2');
@@ -51,8 +52,8 @@ export async function parseJSON (config:{
     return block.value;
 }
 
-export async function inspectList(rl:RabinList, root:CID) {
-    const node = await rl.parseNode(root);
+export async function inspectList(l:RabinList, root:CID) {
+    const node = await l.parseNode(root);
     return {
         cid: root.toString(),
         count: node.count,
@@ -61,7 +62,23 @@ export async function inspectList(rl:RabinList, root:CID) {
             if (node.count[i] === 1) {
                 return cid.toString();
             }
-            return inspectList(rl, cid);
+            return inspectList(l, cid);
+        })),
+    };
+}
+
+export async function inspectBTree<K> (bt:RabinBTree<K>, root:CID) {
+    const node = await bt.parseNode(root);
+    return {
+        cid: root.toString(),
+        count: node.count,
+        leaf: node.leaf,
+        keys: node.keys,
+        children: await Promise.all(node.hashes.map((cid, i) => {
+            if (node.count[i] === 1) {
+                return cid.toString();
+            }
+            return inspectBTree(bt, cid);
         })),
     };
 }
