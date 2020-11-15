@@ -1,7 +1,7 @@
 import tape = require('tape');
 import { CID } from '../multiformat';
 import { RabinBTree } from '../rabin-b-tree';
-import { DEFAULT_FORMATS, encodeJSON, inspectBTree, inspectList } from "./helpers";
+import { DEFAULT_FORMATS, encodeJSON, inspectBTree } from "./helpers";
 
 const BTREE = new RabinBTree<string>(DEFAULT_FORMATS.hasher, DEFAULT_FORMATS.codec, DEFAULT_FORMATS.storage, (a, b) => {
     if (a < b) {
@@ -70,34 +70,38 @@ tape('query test', async (t) => {
     t.end();
 });
 
-// tape('scan test', async (t) => {
-//     const N = 1e4;
+tape('scan test', async (t) => {
+    const N = 1e4;
 
-//     // first create a bunch of random strings
-//     const data:string[] = [];
-//     for (let i = 0; i < N; ++i) {
-//         data.push('ppp' + i);
-//     }
-//     const dataCIDs = await Promise.all(data.map((value) => encodeJSON({
-//         value,
-//         ...DEFAULT_FORMATS
-//     })));
+    // first create a bunch of random strings
+    const data:string[] = [];
+    for (let i = 0; i < N; ++i) {
+        data.push('ppp' + i);
+    }
+    data.sort();
+    const dataCIDs = await Promise.all(data.map((value) => encodeJSON({
+        value,
+        ...DEFAULT_FORMATS
+    })));
+    const map = new Map<string, CID>();
+    dataCIDs.forEach((cid, k) => map.set(data[k], cid));
 
-//     // create a tree
-//     const root = await LIST.create(dataCIDs);
+    // create a tree
+    const root = await BTREE.create(map);
     
-//     async function testScan (start:number, end:number) {
-//         let ptr = start;
-//         for await (const x of LIST.scan(root, start, end)) {
-//             t.equals(x.toString(), dataCIDs[ptr].toString(), 'scan: ' + ptr)
-//             ptr += 1;
-//         }
-//         t.equals(ptr, Math.min(end, N), 'scan returned expected number of elements');
-//     }
+    async function testScan (start:number, end:number) {
+        let ptr = start;
+        for await (const { key, value } of BTREE.scan(root, { lo: start, hi: end })) {
+            t.equals(key, data[ptr], 'scan key: ' + ptr);
+            t.equals(value.toString(), dataCIDs[ptr].toString(), 'scan value: ' + ptr)
+            ptr += 1;
+        }
+        t.equals(ptr, Math.min(end, N), 'scan returned expected number of elements');
+    }
 
-//     // scan full array
-//     await testScan(0, Infinity);
-//     await testScan(500, 3000);
+    // scan full array
+    await testScan(0, Infinity);
+    await testScan(500, 3000);
 
-//     t.end();
-// });
+    t.end();
+});

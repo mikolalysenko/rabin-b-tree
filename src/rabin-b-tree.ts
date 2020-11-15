@@ -9,6 +9,26 @@ type RabinBTreeNode<K> = {
     hashes:CID[];
 }
 
+// range search options
+type RabinBTreeRangeSpec<K> = {
+    // start index
+    lo?:number;
+
+    // alternatively, start of range
+    lt?:K;
+    le?:K;
+
+    // end index
+    hi?:number;
+
+    // alternatively, end of range
+    gt?:K;
+    ge?:K;
+
+    // limit
+    limit?:number;
+}
+
 export class RabinBTree<K> {
     constructor (
         public hasher:Hasher,
@@ -172,103 +192,142 @@ export class RabinBTree<K> {
         return sum(node.count, 0, node.count.length);
     }
 
-    // /**
-    //  * Async generator, scans the array from start to end
-    //  * Complexity: O(k + log(n))  where k = end - start
-    //  * 
-    //  * @param root The root node of the array data structure
-    //  * @param start (optional) start index of the region to scan (default is 0)
-    //  * @param end (optional) end index of the region to scan (default is end of the array)
-    //  * @yields A sequence of array elements in the tree in the range start to end
-    //  */
-    // public async* range(root:CID, options) {
-    //     let count = typeof end === 'undefined' ? Infinity : (end - start);
-    //     if (start < 0) {
-    //         throw new Error('start index out of bounds');
-    //     }
-    //     if (count < 0) {
-    //         return;
-    //     }
+    /**
+     * Async generator, scans a continuous section of the tree, specified by options.
+     * Complexity: O(k + log(n))  where k = number of rows visited
+     * 
+     * @param root The root node of the array data structure
+     * @param options (optional) Configuration elements, determines which part of the array to scan
+     * @yields A sequence of array elements in the tree in the range start to end
+     */
+    public async* scan(root:CID, _options?:RabinBTreeRangeSpec<K>) {
+        const options = _options || {};
 
-    //     // first do a search on the start of the array to initialize the stack
-    //     const stack:{
-    //         index:number;
-    //         hashes:CID[];
-    //     }[] = [];
-    //     let cid = root;
-    //     let ptr = start;
-    //     search_loop: while (true) {
-    //         const block = await this.parseNode(cid);
-    //         for (let i = 0; i < block.count.length; ++i) {
-    //             const count = block.count[i];
-    //             if (ptr < count) {
-    //                 stack.push({
-    //                     index: i,
-    //                     hashes: block.hashes,
-    //                 });
-    //                 if (block.leaf) {
-    //                     break search_loop;
-    //                 } else {
-    //                     cid = block.hashes[i];
-    //                     continue search_loop;
-    //                 }
-    //             }
-    //             ptr -= count;
-    //         }
-    //         throw new Error('start index out of bounds');
-    //     }
+        // first do a search on the start of the array to initialize the stack
+        const stack:{
+            index:number;
+            hashes:CID[];
+            keys:K[];
+        }[] = [];
 
-    //     // next we start scanning the array
-    //     while (count > 0) {            
-    //         // scan leaf node items
-    //         const top = stack.pop();
-    //         const n = Math.min(count, top.hashes.length - top.index)
-    //         for (let i = 0, ptr = top.index; i < n; ++i) {
-    //             // TODO: would be more efficient to yield hashes in batches instead of one-by-one
-    //             yield top.hashes[ptr++];
-    //         }
+        let count = 'hi' in options ? options.hi : Infinity;
+        if ('lt' in options || 'le' in options) {
+            let cid = root;
+            const key = 'lt' in options ? options.lt : options.le;
+            while (true) {
+                const block = await this.parseNode(cid);
+                const idx = Math.max(findPred(block.keys, key, this.compare), 0);
+                count -= sum(block.count, 0, idx);
+                stack.push({
+                    index: idx,
+                    keys: block.keys,
+                    hashes: block.hashes,
+                });
+                if (block.leaf) {
+                    break;
+                }
+                cid = block.hashes[idx];
+            }
+        } else {
+            let cid = root;
+            let ptr = Math.max(options.lo || 0, 0);
+            count -= ptr;
+            search_loop: while (true) {
+                const block = await this.parseNode(cid);
+                for (let i = 0; i < block.count.length; ++i) {
+                    const count = block.count[i];
+                    if (ptr < count) {
+                        stack.push({
+                            index: i,
+                            keys: block.keys,
+                            hashes: block.hashes,
+                        });
+                        if (block.leaf) {
+                            break search_loop;
+                        } else {
+                            cid = block.hashes[i];
+                            continue search_loop;
+                        }
+                    }
+                    ptr -= count;
+                }
+                return;
+            }
+        }
 
-    //         // decrement count and terminate if necessary
-    //         count -= n;
-    //         if (count <= 0) {
-    //             return;
-    //         }
+        // handle empty tree
+        if (stack[0].hashes.length === 0) {
+            return;
+        }
 
-    //         // walk to next node in stack
-    //         while (true) {
-    //             const top = stack[stack.length - 1];
-    //             top.index += 1;
-    //             if (top.index >= top.hashes.length) {
-    //                 // if we are at the end of this node's sequence then pop it from the stack
-    //                 stack.pop();
-    //                 if (stack.length === 0) {
-    //                     return;
-    //                 }
-    //             } else {
-    //                 // otherwise we pop hashes off recursively
-    //                 let cid = top.hashes[top.index];
-    //                 while (true) {
-    //                     const block = await this.parseNode(cid);
-    //                     stack.push({
-    //                         index: 0,
-    //                         hashes: block.hashes,
-    //                     });
-    //                     if (block.leaf) {
-    //                         break;
-    //                     } else {
-    //                         cid = block.hashes[0];
-    //                     }
-    //                 }
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
+        // handle count limits
+        if ('limit' in options) {
+            count = Math.min(count, options.limit);
+        }
 
-    // TODO:
-    //  * upsert
-    //  * remove
-    //  * range scan
-    //  * search (le, lt, ge, gt)
-    //  * successor/predecessor scan
+        // handle boundary case for lt
+        if ('lt' in options) {
+            const top = stack[stack.length - 1];
+            while (this.compare(top.keys[top.index], options.lt) === 0) {
+                top.index += 1;
+            }
+        }
+
+        // next we start scanning the array
+        while (count > 0) {            
+            // scan leaf node items
+            const top = stack.pop();
+            const n = Math.min(count, top.hashes.length - top.index)
+            for (let i = 0, ptr = top.index; i < n; ++i) {
+                const key = top.keys[ptr];
+                if ('gt' in options) {
+                    if (this.compare(options.gt, key) >= 0) {
+                        break;
+                    }
+                } else if ('ge' in options) {
+                    if (this.compare(options.ge, key) > 0) {
+                        break;
+                    }
+                }
+                yield { key, value: top.hashes[ptr] };
+                ptr += 1;
+            }
+
+            // decrement count and terminate if necessary
+            count -= n;
+            if (count <= 0) {
+                return;
+            }
+
+            // walk to next node in stack
+            while (true) {
+                const top = stack[stack.length - 1];
+                top.index += 1;
+                if (top.index >= top.hashes.length) {
+                    // if we are at the end of this node's sequence then pop it from the stack
+                    stack.pop();
+                    if (stack.length === 0) {
+                        return;
+                    }
+                } else {
+                    // otherwise we pop hashes off recursively
+                    let cid = top.hashes[top.index];
+                    while (true) {
+                        const block = await this.parseNode(cid);
+                        stack.push({
+                            index: 0,
+                            keys: block.keys,
+                            hashes: block.hashes,
+                        });
+                        if (block.leaf) {
+                            break;
+                        } else {
+                            cid = block.hashes[0];
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
 }

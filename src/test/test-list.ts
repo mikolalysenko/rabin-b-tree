@@ -76,7 +76,7 @@ tape('scan test', async (t) => {
     
     async function testScan (start:number, end:number) {
         let ptr = start;
-        for await (const x of LIST.scan(root, start, end)) {
+        for await (const x of LIST.scan(root, { lo: start, hi: end })) {
             t.equals(x.toString(), dataCIDs[ptr].toString(), 'scan: ' + ptr)
             ptr += 1;
         }

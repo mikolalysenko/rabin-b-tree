@@ -15,6 +15,12 @@ type RabinListLevel = {
     hashes:CID[];
 }
 
+type RabinListRangeSpec = {
+    lo?:number;
+    hi?:number;
+    limit?:number;
+}
+
 export class RabinList {
     constructor (
         public hasher:Hasher,
@@ -301,15 +307,13 @@ export class RabinList {
      * Complexity: O(k + log(n))  where k = end - start
      * 
      * @param root The root node of the array data structure
-     * @param start (optional) start index of the region to scan (default is 0)
-     * @param end (optional) end index of the region to scan (default is end of the array)
+     * @param options (optional) start index of the region to scan (default is 0)
      * @yields A sequence of array elements in the tree in the range start to end
      */
-    public async* scan(root:CID, start:number=0, end?:number) {
-        let count = typeof end === 'undefined' ? Infinity : (end - start);
-        if (start < 0) {
-            throw new Error('rabin-list: index out of bounds');
-        }
+    public async* scan(root:CID, options?:RabinListRangeSpec) {
+        const start = Math.max('lo' in options ? options.lo : 0, 0);
+        const end = 'hi' in options ? options.hi : Infinity;
+        let count = Math.min(end - start, 'limit' in options ? options.limit : Infinity);
         if (count < 0) {
             return;
         }
