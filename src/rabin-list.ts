@@ -170,7 +170,7 @@ export class RabinList {
                         levels.push({
                             start: i + (ptr === c && block.leaf ? 1 : 0),
                             end: i + 1,
-                            count: block.count,
+                            count: block.count.slice(),
                             hashes: block.hashes,
                         });
                         if (block.leaf) {
@@ -284,10 +284,14 @@ export class RabinList {
         if (head.hashes.length === 0) {
             return await this.serializeNode(true, [], []);
         }
-        while (levels.length > 1 && levels[levels.length - 1].hashes.length <= 1) {
-            head = levels.pop();
+        let result = head.hashes[0];
+        while (true) {
+            const b = await this.parseNode(result);
+            if (b.hashes.length !== 1) {
+                return result;
+            }
+            result = b.hashes[0];
         }
-        return head.hashes[0];
     }
 
     /**
@@ -343,7 +347,7 @@ export class RabinList {
                 }
                 ptr -= count;
             }
-            throw new Error('rabin-list: index out of bounds');
+            return;
         }
 
         // next we start scanning the array

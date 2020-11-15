@@ -105,3 +105,41 @@ tape('scan test', async (t) => {
 
     t.end();
 });
+
+tape('upsert/remove test', async (t) => {
+    const N = 1e4;
+
+    // first create a bunch of random strings
+    const data:string[] = [];
+    for (let i = 0; i < N; ++i) {
+        data.push('ppp' + i);
+    }
+    data.sort();
+    const dataCIDs = await Promise.all(data.map((value) => encodeJSON({
+        value,
+        ...DEFAULT_FORMATS
+    })));
+    const map = new Map<string, CID>();
+    dataCIDs.forEach((cid, k) => map.set(data[k], cid));
+
+    // create a tree
+    const root = await BTREE.create(map);
+    
+    // test remove
+    const partialData = data.slice();
+    const partialMap = new Map<string, CID>();
+    let partialRoot = root;
+    dataCIDs.forEach((cid, k) => partialMap.set(data[k], cid));
+    for (let i = 0; i < 100; ++i) {
+        const idx = (Math.random() * partialData.length) | 0;
+        const item = partialData[idx];
+        partialData.splice(idx, 1);
+        partialMap.delete(item);
+
+        partialRoot = await BTREE.remove(partialRoot, item);
+        const expected = await BTREE.create(partialMap);
+        t.equals(partialRoot.toString(), expected.toString(), 'remove ' + item);
+    }
+
+    t.end();
+});
