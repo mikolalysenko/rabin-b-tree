@@ -134,9 +134,9 @@ export class RabinBTree<K> {
      * @param index The index of the element we are accessing
      * @returns The CID of the element at the index 
      */
-    public async at (root:CID, index:number) : Promise<CID|null> {
+    public async at (root:CID, index:number) : Promise<{ key:K, value: CID }> {
         if (index < 0) {
-            return null;
+            throw new Error('out of bounds');
         }
         let cid = root;
         let ptr = index;
@@ -150,7 +150,7 @@ export class RabinBTree<K> {
                 const count = block.count[i];
                 if (ptr < count) {
                     if (block.leaf) {
-                        return block.hashes[i];
+                        return { key: block.keys[i], value: block.hashes[i] };
                     } else {
                         cid = block.hashes[i];
                         continue search_loop;
@@ -158,7 +158,7 @@ export class RabinBTree<K> {
                 }
                 ptr -= count;
             }
-            return null;
+            throw new Error('out of bounds');
         }
     }
 
