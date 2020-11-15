@@ -505,7 +505,7 @@ export class RabinBTree<K> {
     public async upsert (root:CID, key:K, value:CID) : Promise<CID> {
         const levels = await this._levels(root, key);
         if (levels.length === 0) {
-            return this.serializeNode(true, [], [], []);
+            return this.serializeNode(true, [1], [key], [value]);
         }
         levels[0].count.push(1);
         levels[0].keys.push(key);

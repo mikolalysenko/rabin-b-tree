@@ -141,5 +141,21 @@ tape('upsert/remove test', async (t) => {
         t.equals(partialRoot.toString(), expected.toString(), 'remove ' + item);
     }
 
+    // test upsert
+    const upsertMap = new Map<string, CID>();
+    let upsertRoot = await BTREE.create(upsertMap);
+    for (let i = 0; i < 100; ++i) {
+        const idx = (Math.random() * data.length) | 0;
+        const key = data[idx];
+        const value = dataCIDs[idx];
+
+        upsertRoot = await BTREE.upsert(upsertRoot, key, value);
+
+        upsertMap.set(key, value);
+        const expected = await BTREE.create(upsertMap);
+
+        t.equals(upsertRoot.toString(), expected.toString(), 'upsert ' + key);
+    }
+
     t.end();
 });
